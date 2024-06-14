@@ -124,6 +124,156 @@ plt.show()
 # Predict the class of a single test image
 single_prediction = model.predict(X_test[1].reshape(1, 32, 32, 3)).argmax(axis=1)
 print("Predicted class for X_test[1]:", single_prediction[0])
+—--updated learning rate program
+
+import keras
+
+from keras.models import Sequential
+
+from keras.layers import Dense, Flatten
+
+import numpy as np
+
+import matplotlib.pyplot as plt
+
+from sklearn.metrics import accuracy_score
+
+
+# Load the MNIST dataset
+
+(X_train, y_train), (X_test, y_test) = keras.datasets.mnist.load_data()
+
+
+# Check the shape of the data
+
+print("X_train shape:", X_train.shape)
+
+print("y_train shape:", y_train.shape)
+
+print("X_test shape:", X_test.shape)
+
+print("y_test shape:", y_test.shape)
+
+
+# Display the number of classes
+
+num_classes = len(np.unique(y_train))
+
+print("Number of classes:", num_classes)
+
+
+# Visualize one of the training images
+
+plt.imshow(X_train[2])
+
+plt.show()
+
+
+# Normalize the data
+
+X_train = X_train / 255.0
+
+X_test = X_test / 255.0
+
+
+# Build the neural network model
+
+model = Sequential()
+
+model.add(Flatten(input_shape=(28, 28)))
+
+model.add(Dense(128, activation='relu'))
+
+model.add(Dense(32, activation='relu'))
+
+model.add(Dense(10, activation='softmax'))
+
+
+# Display the model summary
+
+model.summary()
+
+
+# Compile the model with a specified learning rate for the Adam optimizer
+
+learning_rate = 0.001  # You can set this to your desired learning rate
+
+optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
+
+model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+
+
+# Train the model
+
+history = model.fit(X_train, y_train, epochs=30, validation_split=0.2)
+
+
+# Make predictions on the test set
+
+y_prob = model.predict(X_test)
+
+y_pred = y_prob.argmax(axis=1)
+
+
+# Assuming you have a list or array of class labels
+
+class_labels = ['class_0', 'class_1', 'class_2', 'class_3', 'class_4', 'class_5', 'class_6', 'class_7',
+
+                'class_8', 'class_9']
+
+
+# Mapping indices to class labels
+
+y_pred_classes = [class_labels[i] for i in y_pred]
+
+
+# Calculate and display the accuracy score
+
+accuracy = accuracy_score(y_test, y_pred)
+
+print("Accuracy:", accuracy)
+
+
+# Plot training & validation loss values
+
+plt.plot(history.history['loss'], label='Training Loss')
+
+plt.plot(history.history['val_loss'], label='Validation Loss')
+
+plt.legend()
+
+plt.show()
+
+
+# Plot training & validation accuracy values
+
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+
+plt.legend()
+
+plt.show()
+
+
+# Visualize one of the test images
+
+plt.imshow(X_test[5])
+
+plt.show()
+
+
+# Predict the class of a single test image
+
+single_prediction = model.predict(X_test[1].reshape(1, 28, 28)).argmax(axis=1)
+
+print("Predicted class for X_test[1]:", single_prediction[0])
+
+
+—--
+
+
+Page 1 of 9
 2)Autoencoder:
 from sklearn.datasets import make_classification
 import pandas as pd
