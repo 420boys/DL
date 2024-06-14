@@ -1,0 +1,280 @@
+#EXP1
+# Import necessary libraries
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense, Flatten
+import matplotlib.pyplot as plt
+
+# Load the MNIST dataset
+(x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
+
+# Display an example image from the training set
+plt.imshow(x_train[897], cmap='gray')
+plt.title(f"Label: {y_train[897]}")
+plt.show()
+
+# Normalize the dataset
+x_train = x_train / 255.0
+x_test = x_test / 255.0
+
+# Build the neural network model
+model = Sequential()
+model.add(Flatten(input_shape=(28, 28)))
+model.add(Dense(256, activation='relu'))
+model.add(Dense(128, activation='relu'))
+model.add(Dense(64, activation='relu'))
+model.add(Dense(32, activation='relu'))
+model.add(Dense(10, activation='softmax'))
+
+# Print the model summary
+model.summary()
+
+# Compile the model
+model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+# Train the model
+history = model.fit(x_train, y_train, epochs=18, validation_split=0.2)
+
+# Plot training history
+plt.figure(figsize=(12, 6))
+
+plt.subplot(1, 2, 1)
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.title('Loss over Epochs')
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.title('Accuracy over Epochs')
+
+plt.show()
+
+# Display an example image from the test set
+plt.imshow(x_test[1], cmap='gray')
+plt.title(f"True Label: {y_test[1]}")
+plt.show()
+
+# Predict the class for the example test image
+prediction = model.predict(x_test[1].reshape(1, 28, 28)).argmax(axis=1)
+print(f"Predicted Label: {prediction[0]}")
+
+
+-------------------------------------------------------------------------------------------------------------
+#EXP2
+
+from sklearn.datasets import make_classification
+import pandas as pd
+import numpy as np
+from collections import Counter
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+import tensorflow as tf
+from tensorflow.keras import layers, losses
+from sklearn.metrics import classification_report
+
+# Generate synthetic data with imbalanced classes
+X, y = make_classification(n_samples=100000, n_features=32, n_informative=32,
+                           n_redundant=0, n_repeated=0, n_classes=2,
+                           n_clusters_per_class=1, weights=[0.995, 0.005],
+                           class_sep=0.5, random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+print('The number of records in the training dataset is', X_train.shape[0])
+print('The number of records in the test dataset is', X_test.shape[0])
+print(f"The training dataset has {sorted(Counter(y_train).items())[0][1]} records for the majority class and {sorted(Counter(y_train).items())[1][1]} records for the minority class.")
+
+# Prepare the training data for the autoencoder
+X_train_normal = X_train[np.where(y_train == 0)]
+
+# Define the autoencoder model
+input = tf.keras.layers.Input(shape=(32,))
+encoder = tf.keras.Sequential([
+    layers.Dense(16, activation='relu'),
+    layers.Dense(8, activation='relu'),
+    layers.Dense(4, activation='relu')
+])(input)
+decoder = tf.keras.Sequential([
+    layers.Dense(8, activation='relu'),
+    layers.Dense(16, activation='relu'),
+    layers.Dense(32, activation='sigmoid')
+])(encoder)
+autoencoder = tf.keras.Model(inputs=input, outputs=decoder)
+autoencoder.compile(optimizer='adam', loss='mae')
+
+# Train the autoencoder
+history = autoencoder.fit(X_train_normal, X_train_normal,
+                          epochs=20, batch_size=64,
+                          validation_data=(X_test, X_test),
+                          shuffle=True)
+
+# Plot training and validation loss
+plt.plot(history.history["loss"], label="Training Loss")
+plt.plot(history.history["val_loss"], label="Validation Loss")
+plt.legend()
+plt.show()
+
+# Make predictions and calculate the loss
+prediction = autoencoder.predict(X_test)
+prediction_loss = tf.keras.losses.mae(prediction, X_test)
+
+# Determine the loss threshold for anomaly detection
+loss_threshold = np.percentile(prediction_loss, 98)
+print(f'The prediction loss threshold for 2% of outliers is {loss_threshold:.2f}')
+sns.histplot(prediction_loss, bins=30, alpha=0.8)
+plt.axvline(x=loss_threshold, color='orange')
+plt.show()
+
+# Classify the test samples based on the loss threshold and generate a classification report
+threshold_prediction = [0 if i < loss_threshold else 1 for i in prediction_loss]
+print(classification_report(y_test, threshold_prediction))
+
+-------------------------------------------------------------------------------------------------------------------
+#EXP3
+
+import numpy as np
+
+# Parameters
+num_users = 10
+num_movies = 5
+num_hidden_units = 3
+learning_rate = 0.1
+num_epochs = 1000
+
+# Generate random ratings data
+ratings_data = np.random.randint(0, 2, size=(num_users, num_movies)) # The ratings_data matrix will have 10 rows and 5 columns.
+
+# Define the sigmoid function
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+# Initialize weights and biases
+weights = np.random.normal(0, 0.1, (num_movies, num_hidden_units))
+visible_bias = np.zeros(num_movies)
+hidden_bias = np.zeros(num_hidden_units)
+
+# Training the RBM
+for epoch in range(num_epochs):
+    for user_ratings in ratings_data:
+        # Positive phase
+        hidden_probabilities = sigmoid(np.dot(user_ratings, weights) + hidden_bias)
+        positive_associations = np.outer(user_ratings, hidden_probabilities)
+        
+        # Negative phase
+        visible_probabilities = sigmoid(np.dot(hidden_probabilities, weights.T) + visible_bias)
+        hidden_probabilities_recon = sigmoid(np.dot(visible_probabilities, weights) + hidden_bias)
+        negative_associations = np.outer(visible_probabilities, hidden_probabilities_recon)
+        
+        # Update weights and biases
+        weights += learning_rate * (positive_associations - negative_associations)
+        visible_bias += learning_rate * (user_ratings - visible_probabilities)
+        hidden_bias += learning_rate * (hidden_probabilities - hidden_probabilities_recon)
+
+# Predict ratings for a specific user
+user_id = 5
+user_ratings = ratings_data[user_id]
+hidden_probabilities = sigmoid(np.dot(user_ratings, weights) + hidden_bias)
+visible_probabilities = sigmoid(np.dot(hidden_probabilities, weights.T) + visible_bias)
+predicted_ratings = visible_probabilities
+
+# Display the predicted ratings
+print("Predicted ratings for user", user_id, ":", predicted_ratings)
+
+# Find and display the movie with the highest predicted rating
+max_rating = np.max(predicted_ratings)
+max_index = np.argmax(predicted_ratings)
+print("The maximum predicted rating for user", user_id, "is", max_rating, "at movie", max_index)
+-----------------------------------------------------------------------------------------------------------------------------
+#EXP4
+
+# Import necessary libraries
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Dense, Convolution2D, MaxPooling2D, Flatten
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from keras.preprocessing import image
+import numpy as np
+
+# Data Augmentation for the Training set
+train_datagen = ImageDataGenerator(
+    rescale=1./255,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True
+)
+
+# Data Augmentation for the Test set
+test_datagen = ImageDataGenerator(rescale=1./255)
+
+# Paths to the training and test sets
+trainset_path = r"/content/drive/MyDrive/CNN/trainset-20240603T081249Z-001/trainset"
+testset_path = r"/content/drive/MyDrive/CNN/testset-20240603T081248Z-001/testset"
+
+# Loading the Training set
+x_train = train_datagen.flow_from_directory(
+    trainset_path,
+    target_size=(64, 64),
+    batch_size=32,
+    class_mode="categorical"
+)
+
+# Loading the Test set
+x_test = test_datagen.flow_from_directory(
+    testset_path,
+    target_size=(64, 64),
+    batch_size=32,
+    class_mode="categorical"
+)
+
+# Print class indices
+print(x_train.class_indices)
+
+# Building the CNN model
+model = Sequential()
+model.add(Convolution2D(32, (3, 3), input_shape=(64, 64, 3), activation="relu"))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Flatten())
+model.add(Dense(units=128, activation="relu"))
+model.add(Dense(units=5, activation="softmax"))
+model.summary()
+
+# Compiling the CNN model
+model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
+
+# Training the CNN model
+model.fit(x_train, steps_per_epoch=55, epochs=1, validation_data=x_test, validation_steps=20)
+
+# Save the model
+model.save("animal.h5")
+
+# Load the saved model
+model = load_model("animal.h5")
+
+# Image path for prediction
+img_path = "/content/drive/MyDrive/CNN/testset-20240603T081248Z-001/testset/rats/9k_ (16).jpeg"
+
+# Load and preprocess the image
+target_size = (64, 64)
+img = image.load_img(img_path, target_size=target_size)
+x = image.img_to_array(img)
+x = np.expand_dims(x, axis=0)
+x /= 255.0
+
+# Predict the class of the image
+y = model.predict(x)
+pred = np.argmax(y, axis=1)
+
+# Print the prediction
+index = ['bears', 'crows', 'elephants', 'racoons', 'rats']
+result = str(index[pred[0]])
+print("Predicted class:", result)
+
+# Print the class indices
+print("Class indices:", x_train.class_indices)
